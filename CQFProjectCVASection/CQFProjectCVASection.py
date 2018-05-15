@@ -14,6 +14,7 @@
 
 
 import numpy as np
+from numpy.random import normal
 import math
 import pandas as pd
 import os
@@ -24,7 +25,7 @@ from Logger import convertToLaTeX, printf
 from HazardRates import GetDFs, InterpolateProbsLinearFromSurvivalProbs, GetHazardsFromP, BootstrapImpliedProbalities, InterpolateProbsLinearFromSurvivalProbs, DiscountFactorFn, ImpProbFn
 from BootstrapForwardRates import BootstrapForwardRates
 from Returns import AbsoluteDifferences, Cov, PCA, VolFromPCA
-from plotting import return_histogram, showAllPlots, return_lineChart, FittedValuesLinear, plot_histogram_array
+from plotting import return_histogram, showAllPlots, return_lineChart, SuitableRegressionFit, plot_histogram_array, save_all_figs
 from Integration import WeightedNumericalIntFromZero
 from LowDiscrepancyNumberGenerators import SobolNumbers
 from RandomNumber import RN
@@ -37,6 +38,8 @@ cwd = os.getcwd()
 #testCQF_PCA_path = cwd + '/CQF_PCA.xlsm'
 #testCQF_MC_path = cwd + '/CQF_MC.xlsm'
 #CQF_Differences_sheet = pd.read_excel(testCQF_PCA_path,'Differences',0)
+#ObservedFwdPD = pd.read_excel(testCQF_MC_path,'ObservedFwd',0)
+
 #debugTenors = np.array(CQF_Differences_sheet.columns[1:],dtype=np.float)
 #ProxyTenors = debugTenors
 #ProxyTenors[0] = 0.0
@@ -48,7 +51,8 @@ cwd = os.getcwd()
 #VolFns = VolFromPCA(debugPCA[0],debugPCA[1])
 #FittedVolVec = dict()
 #for i in range(0,len(VolFns)):
-#    FittedVolVec[i] = FittedValuesLinear(ProxyTenors,VolFns[i],True,"V_%d"%i,len(VolFns[0]))
+#    #FittedVolVec[i] = FittedValuesLinear(ProxyTenors,VolFns[i],True,"V_%d"%i,len(VolFns[0]))
+#    FittedVolVec[i], regresPow, xLin = SuitableRegressionFit(ProxyTenors,VolFns[i],"V_%d"%i,len(VolFns[1]),3 if i > 0 else 0)
 #V = np.zeros(shape=(len(VolFns),len(VolFns[0])))
 #for i in range(0,len(VolFns)):
 #    for l in range(0,len(ProxyTenors)):
@@ -57,6 +61,77 @@ cwd = os.getcwd()
 #for i in range(0,len(VolFns[0])):
 #    for j in range(0,len(VolFns)):
 #        Drift[i,:] += WeightedNumericalIntFromZero(ProxyTenors[i],FittedVolVec[j])
+
+
+#return_lineChart(ProxyTenors,[Drift],"Fwd Rate Drift",xlabel="Tenor",ylabel="Fwd Rate Drift from PCA")
+#for i in range(0,len(V)):
+#    return_lineChart(ProxyTenors,[VolFns[i],V[i]],"Fitted Volatility Function %d"%i,xlabel="Tenor",ylabel="Volatility",legend=["Volatility Function", "Fitted Volatility Function"])
+
+
+
+
+
+
+#ObservedFwd = np.array(ObservedFwdPD['ObservedFwdRate'])
+#dt = 0.01
+#IRSMaturity = 5.0
+
+#NumbGen = SobolNumbers()
+#NumbGen.initialise(len(VolFns))
+
+#V = V.transpose()
+
+#SimulatedFwdRates = np.zeros(shape=(int(IRSMaturity / dt),len(ObservedFwd))) #!start with observed forward rates, and evolve each rate in timesteps of dt until the maturity of the contract.
+#SimulatedFwdRates[0,:] = ObservedFwd#!simulate all of the forward rates for all 500 time steps
+##p1 = np.zeros(shape=(int(IRSMaturity / dt),len(ObservedFwd)))
+##p15 = np.zeros(shape=(int(IRSMaturity / dt),len(ObservedFwd)))
+#p_diffs = np.zeros(shape=(int(IRSMaturity / dt),len(ObservedFwd)))
+#p21=np.zeros(shape=(int(IRSMaturity / dt),len(ObservedFwd)))
+##p22=np.zeros(shape=(int(IRSMaturity / dt),3))
+##p3=np.zeros(shape=(int(IRSMaturity / dt),len(ObservedFwd)))
+##SimulatedFwdRates1 = np.zeros(shape=(int(IRSMaturity / dt),len(ObservedFwd)))
+#rng = range(0,len(ObservedFwd)-1)
+#rng1 = range(1,len(ObservedFwd))
+#for j in range(1,int(IRSMaturity / dt)):
+#    #!Evolve the obsvtn dt into the future using Musiela
+#    #todo: Divide the below eqn up into parts and see which one is consistently +ve / if the middle component is not introducing enough random noise... (compare to spreadsheet)
+#    #p1[j,rng] = SimulatedFwdRates[j-1,rng]
+#    #p15[j,rng] = Drift[rng,0]*dt
+#    #p = np.array([sum(x) for x in zip(Drift[rng,0]*dt ,(np.matmul(V[rng,:],RN(NumbGen)) * math.sqrt(dt)) )]+[0])
+#    #p21[j,rng]= (p[rng1] - p[rng]) * 2 * dt #(np.matmul(V[rng,:],normal(size=(3))) * math.sqrt(dt))
+#    #p15[j,rng]= SimulatedFwdRates[j-1,rng]  
+#    #p3[j,rng] = np.fromiter(map(lambda xs: sum(xs), p_diffs.transpose()[rng,0:j+1]),dtype=np.float)
+#    #SimulatedFwdRates1[j,rng] = np.fromiter(map(lambda xs: sum(xs), p_diffs.transpose()[rng,0:j]),dtype=np.float) + p_diffs[j,rng]
+#    RN(NumbGen)
+#    p_diffs[j,rng] = np.array([sum(x) for x in zip(Drift[rng,0]*dt ,(np.matmul(V[rng,:],RN(NumbGen)) * math.sqrt(dt)), (SimulatedFwdRates[j-1,rng1] - SimulatedFwdRates[j-1,rng]) * 2 * dt )])
+#    SimulatedFwdRates[j,rng] = np.array([sum(x) for x in zip(SimulatedFwdRates[j-1,rng], p_diffs[j-1,rng])])
+#    i = len(ObservedFwd)-1
+#    SimulatedFwdRates[j,i] = SimulatedFwdRates[j-1,i] + Drift[i,0]*dt + (np.matmul(V[i,:],RN(NumbGen))* math.sqrt(dt)) + (((SimulatedFwdRates[j-1,i] - SimulatedFwdRates[j-1,i-1])/(ProxyTenors[i] - ProxyTenors[i-1])) * dt)
+##!Plot the most significant simulated fwd rates.
+#SimFwdRateLins = np.zeros(shape=(3,len(SimulatedFwdRates[:,0])),dtype=np.float)
+#linnum = 0
+#histLedge = []
+#pTen1 = np.zeros(shape=(3,len(SimulatedFwdRates[:,0])),dtype=np.float)
+#for k in [3,16,44]:#k is most important indices from pca analysis
+#    SimFwdRateLins[linnum] = SimulatedFwdRates[:,k]
+#    pTen1[linnum] = p21[:,k]
+#    histLedge.append("%f Tenor History"%(k/2))
+#    linnum += 1
+#linnum = 0
+#SimFwdXTenors = np.zeros(shape=(4,len(SimulatedFwdRates[0,:])),dtype=np.float)
+#pTen = np.zeros(shape=(4,len(p21[0,:])),dtype=np.float)
+#for k in [1,125,375,499]:
+#    SimFwdXTenors[linnum] = SimulatedFwdRates[k,:]
+#    pTen[linnum] = p21[k,:]
+#    linnum += 1
+
+#return_lineChart(np.arange(0,int(IRSMaturity / dt),1,dtype=np.int),SimFwdRateLins,"Simulated Historical Forward Rates",xlabel="Day",ylabel="Simulated Forward Rate",legend=histLedge)
+#return_lineChart(np.arange(0,int(IRSMaturity / dt),1,dtype=np.int),pTen1,"Simulated DF Comp of Historical Forward Rates",xlabel="Day",ylabel="DF Comp",legend=histLedge)
+#return_lineChart(ProxyTenors,SimFwdXTenors,"Simulated Forward Rates Curves",xlabel="Tenor",ylabel="Simulated Forward Rate",legend=["Today","1.25 yrs","3.75 yrs","5 yrs"])
+#return_lineChart(ProxyTenors,pTen,"Simulated DF Comp of Rates Curves",xlabel="Tenor",ylabel="DF Comp",legend=["Today","1.25 yrs","3.75 yrs","5 yrs"])
+#------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
 
 Datafp = cwd + '/FinalProjData.xlsx'
 
@@ -188,15 +263,15 @@ print("Took %.10f seconds to conduct PCA" % (t3 - t2))
 #todo COnvert VolVectors to fittedVolVectors using cubic spline.
 #todo CHeck beta of Cubic Spline using Cum R^2 which is given in PCA ANalysis results.
 FittedVolVec = dict()
-def fV0(x):
-    return sum(VolFns[0])/len(VolFns[0])
-FittedVolVec[0] = fV0
-for i in range(1,len(VolFns)):
-    FittedVolVec[i] = FittedValuesLinear(ProxiedTenors,VolFns[i],True,"V_%d"%i,len(VolFns[1]))
+#def fV0(x):
+#    return sum(VolFns[0])/len(VolFns[0])
+#FittedVolVec[0] = fV0
+for i in range(0,len(VolFns)):
+    FittedVolVec[i], regresPow, xLin = SuitableRegressionFit(ProxiedTenors,VolFns[i],"V_%d"%i,len(VolFns[1]),3)
 V = np.zeros(shape=(len(VolFns),len(VolFns[0])))
 for i in range(0,len(VolFns)):
     for l in range(0,len(ProxiedTenors)):
-        V[i,l] = FittedVolVec[i](ProxiedTenors[l])
+        V[i,l] = FittedVolVec[i](ProxiedTenors[l]) #the reason that its the same is that cubic still goes through all the points, its just not linear between.
 Drift = np.zeros(shape=(len(VolFns[0]),1))
 for i in range(0,len(VolFns[0])):
     for j in range(0,len(VolFns)):
@@ -205,7 +280,7 @@ for i in range(0,len(VolFns[0])):
 
 return_lineChart(ProxiedTenors,[Drift],"Fwd Rate Drift",xlabel="Tenor",ylabel="Fwd Rate Drift from PCA")
 for i in range(0,len(V)):
-    return_lineChart(ProxiedTenors,[V[i],VolFns[i]],"Fitted Volatility Function %d"%i,xlabel="Tenor",ylabel="Volatility")
+    return_lineChart(ProxiedTenors,[VolFns[i],V[i]],"Fitted Volatility Function %d"%i,xlabel="Tenor",ylabel="Volatility",legend=["Volatility Function", "Fitted Volatility Function"])
 
 #todo Write a function for the update algo that takes tau as a parameter
 ObservedFwd = HistoricalFwdRatesTable[noOfRows-1,:]
@@ -214,8 +289,8 @@ IRSMaturity = 5.0
 
 NumbGen = SobolNumbers()
 NumbGen.initialise(len(VolFns))
-for i in range(0,5000):
-    NumbGen.Generate()
+#for i in range(0,5000):
+#    NumbGen.Generate()
 
 #def Musiela(tau):
 
@@ -224,20 +299,44 @@ pdV = convertToLaTeX(pd.DataFrame(V,dtype=np.float))
 #!Use observed drift and vols calculated from VolFn to simulate fwd rates and simulate the Swap.
 parFixedRate = GetParSwapRate(DiscountFactorCurve['6mLibor'],Maturity=5,Tenors=ProxiedTenors,Tenor=0.5)
 def SimulateFwdRatesAndPriceIRS(NumbGen,returnCharts=False):
-    SimulatedFwdRates = np.zeros(shape=(int(IRSMaturity / dt),len(ObservedFwd))) #start with observed forward rates, and evolve each rate in timesteps of dt until the maturity of the contract.
-    SimulatedFwdRates[0,:] = ObservedFwd#simulate all of the forward rates for all 500 simulations
+    SimulatedFwdRates = np.zeros(shape=(int(IRSMaturity / dt),len(ObservedFwd))) #!start with observed forward rates, and evolve each rate in timesteps of dt until the maturity of the contract.
+    SimulatedFwdRates[0,:] = ObservedFwd#!simulate all of the forward rates for all 500 time steps
+    #p1 = np.zeros(shape=(int(IRSMaturity / dt),len(ObservedFwd)))
+    #p15 = np.zeros(shape=(int(IRSMaturity / dt),len(ObservedFwd)))
+    p_diffs = np.zeros(shape=(int(IRSMaturity / dt),len(ObservedFwd)))
+    #p21=np.zeros(shape=(int(IRSMaturity / dt),len(ObservedFwd),3))
+    #p22=np.zeros(shape=(int(IRSMaturity / dt),3))
+    #p3=np.zeros(shape=(int(IRSMaturity / dt),len(ObservedFwd)))
+    #SimulatedFwdRates1 = np.zeros(shape=(int(IRSMaturity / dt),len(ObservedFwd)))
+    rng = range(0,len(ObservedFwd)-1)
+    rng1 = range(1,len(ObservedFwd))
     for j in range(1,int(IRSMaturity / dt)):
         #!Evolve the obsvtn dt into the future using Musiela
-        rng = range(0,len(ObservedFwd)-1)
-        rng1 = range(1,len(ObservedFwd)) 
-        SimulatedFwdRates[j,rng] = SimulatedFwdRates[j-1,rng] + Drift[rng,0]*dt + np.matmul(V[rng,:],(RN(V.shape[1],1,NumbGen) * math.sqrt(dt) )) + ((SimulatedFwdRates[j-1,rng1] - SimulatedFwdRates[j-1,rng])/(ProxiedTenors[rng1] - ProxiedTenors[rng])) * dt 
+        #todo: Divide the below eqn up into parts and see which one is consistently +ve / if the middle component is not introducing enough random noise... (compare to spreadsheet)
+        #p1[j,rng] = SimulatedFwdRates[j-1,rng]
+        #p15[j,rng] = Drift[rng,0]*dt
+        #p21[j,rng]= V[rng,:]
+        #p15[j,rng]= SimulatedFwdRates[j-1,rng]  
+        #p3[j,rng] = np.fromiter(map(lambda xs: sum(xs), p_diffs.transpose()[rng,0:j+1]),dtype=np.float)
+        #SimulatedFwdRates1[j,rng] = np.fromiter(map(lambda xs: sum(xs), p_diffs.transpose()[rng,0:j]),dtype=np.float) + p_diffs[j,rng]
+
+        RN(NumbGen)
+        p_diffs[j,rng] = np.array([sum(x) for x in zip(Drift[rng,0]*dt ,(np.matmul(V[rng,:],RN(NumbGen)) * math.sqrt(dt)), ((SimulatedFwdRates[j-1,rng1] - SimulatedFwdRates[j-1,rng]) / (ProxiedTenors[rng1] - ProxiedTenors[rng])) * dt )])
+        SimulatedFwdRates[j,rng] = np.array([sum(x) for x in zip(SimulatedFwdRates[j-1,rng], p_diffs[j-1,rng])])
         i = len(ObservedFwd)-1
-        SimulatedFwdRates[j,i] = SimulatedFwdRates[j-1,i] + Drift[i,0]*dt + np.matmul(V[i,:],(RN(V.shape[1],1,NumbGen)* math.sqrt(dt))) + ((SimulatedFwdRates[j-1,i] - SimulatedFwdRates[j-1,i-1])/(ProxiedTenors[i] - ProxiedTenors[i-1])) * dt 
+        SimulatedFwdRates[j,i] = SimulatedFwdRates[j-1,i] + Drift[i,0]*dt + (np.matmul(V[i,:],RN(NumbGen))* math.sqrt(dt)) + (((SimulatedFwdRates[j-1,i] - SimulatedFwdRates[j-1,i-1])/(ProxiedTenors[i] - ProxiedTenors[i-1])) * dt)
+
+        #p_diffs[j,rng] = Drift[rng,0]*dt +  (np.matmul(V[rng,:],RN(NumbGen)) * math.sqrt(dt)) + ((SimulatedFwdRates[j-1,rng1] - SimulatedFwdRates[j-1,rng])/(ProxiedTenors[rng1] - ProxiedTenors[rng])) * dt 
+        #SimulatedFwdRates[j,rng] = SimulatedFwdRates[j-1,rng] + p_diffs[j-1,rng]
+        #i = len(ObservedFwd)-1
+        #SimulatedFwdRates[j,i] = SimulatedFwdRates[j-1,i] + Drift[i,0]*dt + (np.matmul(V[i,:],RN(NumbGen))* math.sqrt(dt)) + (((SimulatedFwdRates[j-1,i] - SimulatedFwdRates[j-1,i-1])/(ProxiedTenors[i] - ProxiedTenors[i-1])) * dt) 
     #!Plot the most significant simulated fwd rates.
     SimFwdRateLins = np.zeros(shape=(noOFFacs,len(SimulatedFwdRates[:,0])),dtype=np.float)
     linnum = 0
-    for k in PCAAnal[3][0:noOFFacs]:
+    histLedge = []
+    for k in PCAAnal[3][0:noOFFacs]:#k is most important indices from pca analysis
         SimFwdRateLins[linnum] = SimulatedFwdRates[:,k]
+        histLedge.append("%d Tenor History"%k)
         linnum += 1
     linnum = 0
     SimFwdXTenors = np.zeros(shape=(4,len(SimulatedFwdRates[0,:])),dtype=np.float)
@@ -245,20 +344,20 @@ def SimulateFwdRatesAndPriceIRS(NumbGen,returnCharts=False):
         SimFwdXTenors[linnum] = SimulatedFwdRates[k,:]
         linnum += 1
     if returnCharts:
-        return_lineChart(np.arange(0,int(IRSMaturity / dt),1,dtype=np.int),SimFwdRateLins,"Simulated Historical Forward Rates",xlabel="Day",ylabel="Simulated Forward Rate")
-        return_lineChart(ProxiedTenors,SimFwdXTenors,"Simulated Forward Rates Curves",xlabel="Tenor",ylabel="Simulated Forward Rate")
+        return_lineChart(np.arange(0,int(IRSMaturity / dt),1,dtype=np.int),SimFwdRateLins,"Simulated Historical Forward Rates",xlabel="Day",ylabel="Simulated Forward Rate",legend=histLedge)
+        return_lineChart(ProxiedTenors,SimFwdXTenors,"Simulated Forward Rates Curves",xlabel="Tenor",ylabel="Simulated Forward Rate",legend=["Today","1.25 yrs","3.75 yrs","5 yrs"])
     #MC simulation of SimualteFwdRAtes. Then calculate IRS payments for each and take average.
     fixedRate = parFixedRate
     #UNcommment line below for present values of all payments.
     #PVs = PriceIRS(SimulatedFwdRates,fixedRate,dt,DF=DiscountFactorCurve['Sonia'],Tenors=ProxiedTenors,Tenor=0.5,Maturity=5)
     # Using proxied tenors here as these are the tenors that were used to obtain the fwdrates.
     Notional = 1000000
-    Exposures = IRSExposures(SimulatedFwdRates,fixedRate,dt,DF=DiscountFactorCurve['Sonia'],PaymentDateTenors=ProxiedTenors,PaymentTenor=0.5,ExposureTenor=0.5,Notional=Notional,Maturity=5)
+    Exposures = IRSExposures(SimulatedFwdRates,fixedRate,dt,DF=DiscountFactorCurve['Sonia'],PaymentDateTenors=ProxiedTenors,PaymentTenor=0.5,ExposureTenor=0.5,Notional=Notional,Maturity=5) #the massive exposure is the result of r_float - r_fixed
     return Exposures
 M = 500 #todo: Change this to the min of a number of iterations and a converging variance.
 M_Min = 50
 Tolerance = 0.000001
-dummy = SimulateFwdRatesAndPriceIRS(NumbGen,False)
+dummy = SimulateFwdRatesAndPriceIRS(NumbGen,True)
 IRSExposureRunningAv = np.zeros(shape=(M,len(dummy)))
 IRSExposureRunningAv[0,:] = dummy
 TenoredExposures = np.zeros(shape=(M,len(dummy)))
@@ -287,14 +386,20 @@ plot_histogram_array(ExposureDic,"Exposure")
 #the interesting PCA suggests negative influences too which could be because of the poor interest rates. 
 #todo: Look at plots of forward rates for some different tenors.
 #todo: Use interpolated monthly periods when we have monthly exposures, currently only calculate the exposure on payment dates. Monthly exposure will change due to changes in forward rate projections.
-CVAAdjustment = ComputeCVA(IRSExposureRunningAv[-1,0:61:6],PD_dic=BootstrappedIntraPeriodDefaultProbs['DB CDS EUR'],DFFn=DiscountFactorCurve['Sonia'],Tenors=PaymentDates,Tenor=0.5,Maturity=5,R=0.4)
-PaymentDateCVATable = convertToLaTeX(pd.DataFrame(data=np.array([PaymentDates,CVAAdjustment],dtype=np.float), index = ["Payment Dates", "CVA"], dtype=np.float))
+CVAAdjustment = ComputeCVA(IRSExposureRunningAv[-1],PD_dic=BootstrappedIntraPeriodDefaultProbs['DB CDS EUR'],DFFn=DiscountFactorCurve['Sonia'],Tenors=PaymentDates,Tenor=0.5,Maturity=5,R=0.4)
+PaymentDateCVATable = convertToLaTeX(pd.DataFrame(data=[PaymentDates,CVAAdjustment], index = ["Payment Dates", "CVA"], dtype=np.float),"CVA_Table")
 #CVAAdjustmentMonthly = ComputeCVA(IRSExposureRunningAv[-1,:],PD_dic=BootstrappedIntraPeriodDefaultProbs['DB CDS EUR'],DFFn=DiscountFactorCurve['Sonia'],Tenors=ExposureDates,Tenor=step,Maturity=5,R=0.4)
 #MonthlyCVATable = convertToLaTeX(pd.DataFrame(data=np.array([ExposureDates, CVAAdjustmentMonthly],dtype=np.float), index = ["Monthly Dates", "CVA"], dtype=np.float))
 TotalCVA1 = sum(CVAAdjustment)
 #TotalCVA2 = sum(CVAAdjustmentMonthly) #todo: Summing the Exposure at each date is much higher by about 6 times.
 #todo: Investigate the affect of altering K.
 
+print("Enter any key to finish.")
+
+save_all_figs()
+userIn = input()
+#if userIn == 'p':
+#    showAllPlots()
 Debug = True
 
 

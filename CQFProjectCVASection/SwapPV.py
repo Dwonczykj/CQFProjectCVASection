@@ -24,8 +24,6 @@ def PriceIRS(FwdsMatrix,r_fix,dt,DF,Tenors,Tenor,Maturity,Notional=1, CurrentTim
         pv_fix_pymnt = DF(pymntTenor - CurrentTime) * Notional * r_fix * Tenor
         pvpayments[pymentNum] = pv_flt_pymnt - pv_fix_pymnt
         pymentNum += 1
-    if CurrentTime == 0:
-        print("hey")
     return pvpayments
 
 def GetSpot(FwdRates,Tenors,t):

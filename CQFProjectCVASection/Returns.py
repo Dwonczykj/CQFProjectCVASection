@@ -3,6 +3,7 @@ import pandas as pd
 import math
 from scipy import linalg as LA
 from scipy.optimize.nonlin import KrylovJacobian
+import operator
 
 def LogReturns(values: pd.Series, lag: np.int = 1, jump: np.int = 1, averageJumpPeriod = False):
     '''
@@ -260,3 +261,8 @@ def CholeskyDecomp(Sigma: np.matrix):
             else:
                 A[j,i] = (1/A[i,i]) * (Sigma[i,j] - sum(map(lambda x, y: x * y, A[i,0:(i)], A[j,0:(i)])))
     return A
+
+def AIC(y,y_pred,k):
+    resid = np.fromiter(map(operator.sub,y,y_pred),dtype=np.float)
+    sse=sum(resid**2)
+    return 2*k - 2*math.log(sse)
