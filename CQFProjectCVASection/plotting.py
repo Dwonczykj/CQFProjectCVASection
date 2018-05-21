@@ -17,7 +17,7 @@ if not os.path.exists(SubmissionFilePath):
 
 def pyplot_memcheck():
     fignums = plt.get_fignums()
-    if len(fignums) > 10:
+    if len(fignums) > 19:
         save_all_figs()
 
 def save_all_figs():
@@ -63,7 +63,7 @@ def plot_codependence_scatters(dataDic,xlabel,ylabel=""):
     pyplot_memcheck()
     keys = list(dataDic.keys())
     ln = len(keys)
-    nPlt = math.factorial(ln-1)
+    nPlt = int((ln * (ln - 1))/2)#math.factorial(ln-1)
     n = nPlt
     #keep on dividing by 2 with no remainder until it is not possible:
     i = 0
@@ -85,7 +85,8 @@ def plot_codependence_scatters(dataDic,xlabel,ylabel=""):
         for j2 in range(j1+1,ln):
             key1 = keys[j1]
             key2 = keys[j2]
-            return_scatter(dataDic[key1],dataDic[key2],"%s vs %s" % (key1,key2),j+1,numCols,numRows,xlabel,ylabel) if ylabel != "" else return_scatter(dataDic[key1],dataDic[key2],"%s vs %s" % (key1,key2),j+1,numCols,numRows,xlabel)
+            
+            return_scatter(dataDic[key1],dataDic[key2],"%s vs %s" % (key1,key2),j+1,numCols,numRows,xlabel.replace("%","%s"%(key1)) if "%" in xlabel else xlabel,ylabel.replace("%","%s"%(key2)) if "%" in ylabel else ylabel) if ylabel != "" else return_scatter(dataDic[key1],dataDic[key2],"%s vs %s" % (key1,key2),j+1,numCols,numRows,xlabel.replace("%","%s"%(key1)) if "%" in xlabel else xlabel)
             j += 1
 
 def return_scatter(xdata,ydata,name,numberPlot=1,noOfPlotsW=1, noOfPlotsH=1,xlabel = "", ylabel="frequency/probability",legend=[], xticks=[], yticks=[]):
@@ -95,7 +96,7 @@ def return_scatter(xdata,ydata,name,numberPlot=1,noOfPlotsW=1, noOfPlotsH=1,xlab
         fig = plt.figure(figsize=(10, 6))
         fig.canvas.set_window_title(name)
         fig.canvas.figure.set_label(name)
-    plt.subplot(noOfPlotsW,noOfPlotsH,numberPlot)
+    plt.subplot(noOfPlotsH,noOfPlotsW,numberPlot)
     x = np.linspace(min(xdata), max(xdata), 100)
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)

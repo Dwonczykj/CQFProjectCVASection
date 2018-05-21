@@ -20,12 +20,14 @@ import pandas as pd
 import os
 import time
 from matplotlib.mlab import PCA as PCAM
+from sobol_seq import i4_sobol
+from scipy.stats import uniform
 
 from Logger import convertToLaTeX, printf
 from HazardRates import GetDFs, InterpolateProbsLinearFromSurvivalProbs, GetHazardsFromP, BootstrapImpliedProbalities, InterpolateProbsLinearFromSurvivalProbs, DiscountFactorFn, ImpProbFn
 from BootstrapForwardRates import BootstrapForwardRates
 from Returns import AbsoluteDifferences, Cov, PCA, VolFromPCA
-from plotting import return_histogram, showAllPlots, return_lineChart, SuitableRegressionFit, plot_histogram_array, save_all_figs
+from plotting import return_histogram, return_scatter, plot_codependence_scatters, showAllPlots, return_lineChart, SuitableRegressionFit, plot_histogram_array, save_all_figs
 from Integration import WeightedNumericalIntFromZero
 from LowDiscrepancyNumberGenerators import SobolNumbers
 from RandomNumber import RN
@@ -292,6 +294,25 @@ NumbGen.initialise(len(VolFns))
 #for i in range(0,5000):
 #    NumbGen.Generate()
 
+class ImportSobolNumbGen:
+    def __init__(self, dim):
+        quasi, s = i4_sobol(len(VolFns),self.seed)
+        self.seed = s
+        
+    seed = 0
+
+    def Generate(self):
+        quasi, s = i4_sobol(len(VolFns),self.seed)
+        self.seed = s
+        return quasi
+#AltNumbGen = ImportSobolNumbGen(len(VolFns))
+
+#todo We should be using pseudo randomness for Musiela as we WANT UNCORRELATED rvs, the low-disc nos are by definition deliberately correlated in order to more quickly cover the distribution.
+class ImportPseudoNumbGen: 
+    def Generate(self):
+        return uniform.rvs(size=(len(VolFns)))
+AltNumbGen = ImportPseudoNumbGen()
+
 #def Musiela(tau):
 
 V = V.transpose()
@@ -301,9 +322,11 @@ parFixedRate = GetParSwapRate(DiscountFactorCurve['6mLibor'],Maturity=5,Tenors=P
 def SimulateFwdRatesAndPriceIRS(NumbGen,returnCharts=False):
     SimulatedFwdRates = np.zeros(shape=(int(IRSMaturity / dt),len(ObservedFwd))) #!start with observed forward rates, and evolve each rate in timesteps of dt until the maturity of the contract.
     SimulatedFwdRates[0,:] = ObservedFwd#!simulate all of the forward rates for all 500 time steps
-    #p1 = np.zeros(shape=(int(IRSMaturity / dt),len(ObservedFwd)))
-    #p15 = np.zeros(shape=(int(IRSMaturity / dt),len(ObservedFwd)))
     p_diffs = np.zeros(shape=(int(IRSMaturity / dt),len(ObservedFwd)))
+    p1 = np.zeros(shape=(int(IRSMaturity / dt),len(VolFns)))
+    p2 = np.zeros(shape=(int(IRSMaturity / dt),len(VolFns)))
+    p3 = np.zeros(shape=(2*int(IRSMaturity / dt),len(VolFns)))
+    #p15 = np.zeros(shape=(int(IRSMaturity / dt),len(ObservedFwd)))
     #p21=np.zeros(shape=(int(IRSMaturity / dt),len(ObservedFwd),3))
     #p22=np.zeros(shape=(int(IRSMaturity / dt),3))
     #p3=np.zeros(shape=(int(IRSMaturity / dt),len(ObservedFwd)))
@@ -312,24 +335,36 @@ def SimulateFwdRatesAndPriceIRS(NumbGen,returnCharts=False):
     rng1 = range(1,len(ObservedFwd))
     for j in range(1,int(IRSMaturity / dt)):
         #!Evolve the obsvtn dt into the future using Musiela
-        #todo: Divide the below eqn up into parts and see which one is consistently +ve / if the middle component is not introducing enough random noise... (compare to spreadsheet)
-        #p1[j,rng] = SimulatedFwdRates[j-1,rng]
+        #p1[j] = RN(NumbGen)
+        #p2[j] = RNs
+        #p3[2*j -1] = p1[j]
+        #p3[2*j] = p2[j]
+        RNs = normal(size=(3)) #only call this once per iteration.
+        p_diffs[j,rng] = np.array([sum(x) for x in zip(Drift[rng,0]*dt ,(np.matmul(V[rng,:],RNs) * math.sqrt(dt)), ((SimulatedFwdRates[j-1,rng1] - SimulatedFwdRates[j-1,rng]) / (ProxiedTenors[rng1] - ProxiedTenors[rng])) * dt )])
+        SimulatedFwdRates[j,rng] = np.array([sum(x) for x in zip(SimulatedFwdRates[j-1,rng], p_diffs[j-1,rng])])
+        i = len(ObservedFwd)-1
+        SimulatedFwdRates[j,i] = SimulatedFwdRates[j-1,i] + Drift[i,0]*dt + (np.matmul(V[i,:],RNs)* math.sqrt(dt)) + (((SimulatedFwdRates[j-1,i] - SimulatedFwdRates[j-1,i-1])/(ProxiedTenors[i] - ProxiedTenors[i-1])) * dt)
         #p15[j,rng] = Drift[rng,0]*dt
         #p21[j,rng]= V[rng,:]
         #p15[j,rng]= SimulatedFwdRates[j-1,rng]  
         #p3[j,rng] = np.fromiter(map(lambda xs: sum(xs), p_diffs.transpose()[rng,0:j+1]),dtype=np.float)
         #SimulatedFwdRates1[j,rng] = np.fromiter(map(lambda xs: sum(xs), p_diffs.transpose()[rng,0:j]),dtype=np.float) + p_diffs[j,rng]
-
-        RN(NumbGen)
-        p_diffs[j,rng] = np.array([sum(x) for x in zip(Drift[rng,0]*dt ,(np.matmul(V[rng,:],RN(NumbGen)) * math.sqrt(dt)), ((SimulatedFwdRates[j-1,rng1] - SimulatedFwdRates[j-1,rng]) / (ProxiedTenors[rng1] - ProxiedTenors[rng])) * dt )])
-        SimulatedFwdRates[j,rng] = np.array([sum(x) for x in zip(SimulatedFwdRates[j-1,rng], p_diffs[j-1,rng])])
-        i = len(ObservedFwd)-1
-        SimulatedFwdRates[j,i] = SimulatedFwdRates[j-1,i] + Drift[i,0]*dt + (np.matmul(V[i,:],RN(NumbGen))* math.sqrt(dt)) + (((SimulatedFwdRates[j-1,i] - SimulatedFwdRates[j-1,i-1])/(ProxiedTenors[i] - ProxiedTenors[i-1])) * dt)
-
         #p_diffs[j,rng] = Drift[rng,0]*dt +  (np.matmul(V[rng,:],RN(NumbGen)) * math.sqrt(dt)) + ((SimulatedFwdRates[j-1,rng1] - SimulatedFwdRates[j-1,rng])/(ProxiedTenors[rng1] - ProxiedTenors[rng])) * dt 
         #SimulatedFwdRates[j,rng] = SimulatedFwdRates[j-1,rng] + p_diffs[j-1,rng]
         #i = len(ObservedFwd)-1
         #SimulatedFwdRates[j,i] = SimulatedFwdRates[j-1,i] + Drift[i,0]*dt + (np.matmul(V[i,:],RN(NumbGen))* math.sqrt(dt)) + (((SimulatedFwdRates[j-1,i] - SimulatedFwdRates[j-1,i-1])/(ProxiedTenors[i] - ProxiedTenors[i-1])) * dt) 
+
+    #return_scatter(p1[:,0],p1[:,1],"Sobol Numbers: D0 vs D1 (P1)",xlabel="D0",ylabel="D1",numberPlot=1,noOfPlotsW=3,noOfPlotsH=2)
+    #return_scatter(p1[:,0],p1[:,2],"Sobol Numbers: D0 vs D2 (P1)",xlabel="D0",ylabel="D2",numberPlot=2,noOfPlotsW=3,noOfPlotsH=2)
+    #return_scatter(p1[:,1],p1[:,2],"Sobol Numbers: D1 vs D2 (P1)",xlabel="D1",ylabel="D2",numberPlot=3,noOfPlotsW=3,noOfPlotsH=2)
+    #return_scatter(p2[:,0],p2[:,1],"Sobol Numbers: D0 vs D1 (P2)",xlabel="D0",ylabel="D1",numberPlot=4,noOfPlotsW=3,noOfPlotsH=2)
+    #return_scatter(p2[:,0],p2[:,2],"Sobol Numbers: D0 vs D2 (P2)",xlabel="D0",ylabel="D2",numberPlot=5,noOfPlotsW=3,noOfPlotsH=2)
+    #return_scatter(p2[:,1],p2[:,2],"Sobol Numbers: D1 vs D2 (P2)",xlabel="D1",ylabel="D2",numberPlot=6,noOfPlotsW=3,noOfPlotsH=2)
+    #return_scatter(p3[:,0],p3[:,1],"Sobol Numbers: D0 vs D1 (P3)",xlabel="D0",ylabel="D1")
+    #return_scatter(p3[:,0],p3[:,2],"Sobol Numbers: D0 vs D2 (P3)",xlabel="D0",ylabel="D2")
+    #return_scatter(p3[:,1],p3[:,2],"Sobol Numbers: D1 vs D2 (P3)",xlabel="D1",ylabel="D2")
+    #plot_codependence_scatters(dict(enumerate(p3.transpose())),"D%","D%")
+
     #!Plot the most significant simulated fwd rates.
     SimFwdRateLins = np.zeros(shape=(noOFFacs,len(SimulatedFwdRates[:,0])),dtype=np.float)
     linnum = 0
@@ -357,7 +392,7 @@ def SimulateFwdRatesAndPriceIRS(NumbGen,returnCharts=False):
 M = 500 #todo: Change this to the min of a number of iterations and a converging variance.
 M_Min = 50
 Tolerance = 0.000001
-dummy = SimulateFwdRatesAndPriceIRS(NumbGen,True)
+dummy = SimulateFwdRatesAndPriceIRS(AltNumbGen,True)
 IRSExposureRunningAv = np.zeros(shape=(M,len(dummy)))
 IRSExposureRunningAv[0,:] = dummy
 TenoredExposures = np.zeros(shape=(M,len(dummy)))
