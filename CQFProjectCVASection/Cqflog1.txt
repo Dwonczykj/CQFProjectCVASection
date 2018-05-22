@@ -1,0 +1,8 @@
+The cumulative sum of the CVA is: 350349.14030514576
+-------------------------------
+The cumulative sum of the CVA is: 325600.7534091491
+-------------------------------
+The cumulative sum of the CVA is: 308795.70590170985
+-------------------------------
+The cumulative sum of the CVA is: 295507.90595226956
+-------------------------------

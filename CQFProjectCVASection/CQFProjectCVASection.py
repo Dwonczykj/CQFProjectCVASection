@@ -316,7 +316,7 @@ AltNumbGen = ImportPseudoNumbGen()
 #def Musiela(tau):
 
 V = V.transpose()
-pdV = convertToLaTeX(pd.DataFrame(V,dtype=np.float))
+pdV = convertToLaTeX(pd.DataFrame(V,dtype=np.float),name="Fitted_Volatility_Functions")
 #!Use observed drift and vols calculated from VolFn to simulate fwd rates and simulate the Swap.
 parFixedRate = GetParSwapRate(DiscountFactorCurve['6mLibor'],Maturity=5,Tenors=ProxiedTenors,Tenor=0.5)
 def SimulateFwdRatesAndPriceIRS(NumbGen,returnCharts=False):
@@ -413,7 +413,10 @@ ExposureDic = dict()
 for i in range(len(dummy)):
     ExposureDic["%f"%PaymentDates[i]] = np.fromiter(map(lambda x: max(x,0),TenoredExposures[:,i]),dtype=np.float) 
 
-plot_histogram_array(ExposureDic,"Exposure")
+exposureOutPercentiles = [1, 5, 10, 25, 75, 90, 95, 99]
+exposureStats = plot_histogram_array(ExposureDic,"Exposure",75,exposureOutPercentiles)
+exposure_stats_keys = list(exposureStats.keys())
+
 #todo: Instead, each exposure (like in spreadsheet) should be the MTM of the swap, check that it is the MTM and not just a swap payment in priceIRS function. then From the distrubitions perform VAR style analysis to get median fuiture exposure and 97% future exposure. Might involve reiterating the rates at the 97%? or might just be the corner ts of forward rates.
 #!could actually be an issue as we seem to only price IRS once for each iteration of the sim, should be once at each timestep.
 #!return_lineChart(np.arange(0,M,1,dtype=np.int),IRSRunningAv.transpose(),"IRS MTM Running Average",xlabel="Monte Carlo Iteration",ylabel="IRS MTM",legend=PaymentDates)
@@ -426,8 +429,17 @@ PaymentDateCVATable = convertToLaTeX(pd.DataFrame(data=[PaymentDates,CVAAdjustme
 #CVAAdjustmentMonthly = ComputeCVA(IRSExposureRunningAv[-1,:],PD_dic=BootstrappedIntraPeriodDefaultProbs['DB CDS EUR'],DFFn=DiscountFactorCurve['Sonia'],Tenors=ExposureDates,Tenor=step,Maturity=5,R=0.4)
 #MonthlyCVATable = convertToLaTeX(pd.DataFrame(data=np.array([ExposureDates, CVAAdjustmentMonthly],dtype=np.float), index = ["Monthly Dates", "CVA"], dtype=np.float))
 TotalCVA1 = sum(CVAAdjustment)
+printf("The cumulative sum of the CVA is: {0}".format(TotalCVA1))
 #TotalCVA2 = sum(CVAAdjustmentMonthly) #todo: Summing the Exposure at each date is much higher by about 6 times.
 #todo: Investigate the affect of altering K.
+Ex_means = [exposureStats[k][0] for k in exposure_stats_keys]
+Ex_Sds = [exposureStats[k][1] for k in exposure_stats_keys]
+#Ex_percentiles = np.zeros(shape=(1+len(exposureOutPercentiles),len(PaymentDates)))
+#Ex_percentiles[0]=PaymentDates
+Ex_percentiles = np.array([np.array(exposureStats[k][2]) for k in exposure_stats_keys]).transpose()
+ExposureStatsTable = convertToLaTeX(pd.DataFrame(data=[Ex_means,Ex_Sds], index = ["Mean", "Std. Dev."], columns=PaymentDates, dtype=np.float),"Exposure_stats_Table",topLeftCellText="Payment dates")
+ExposurePercentileTable = convertToLaTeX(pd.DataFrame(data=Ex_percentiles, columns=PaymentDates, index=["{0}".format(p) for p in exposureOutPercentiles], dtype=np.float),"Exposure_Percentiles_Table",topLeftCellText="Payment dates")
+
 
 print("Enter any key to finish.")
 
