@@ -413,7 +413,7 @@ ExposureDic = dict()
 for i in range(len(dummy)):
     ExposureDic["%f"%PaymentDates[i]] = np.fromiter(map(lambda x: max(x,0),TenoredExposures[:,i]),dtype=np.float) 
 
-exposureOutPercentiles = [1, 5, 10, 25, 75, 90, 95, 99]
+exposureOutPercentiles = [1, 2.5, 5, 10, 25, 50, 75, 90, 95, 97.5, 99]
 exposureStats = plot_histogram_array(ExposureDic,"Exposure",75,exposureOutPercentiles)
 exposure_stats_keys = list(exposureStats.keys())
 
@@ -439,8 +439,8 @@ Ex_Sds = [exposureStats[k][1] for k in exposure_stats_keys]
 Ex_percentiles = np.array([np.array(exposureStats[k][2]) for k in exposure_stats_keys]).transpose()
 ExposureStatsTable = convertToLaTeX(pd.DataFrame(data=[Ex_means,Ex_Sds], index = ["Mean", "Std. Dev."], columns=PaymentDates, dtype=np.float),"Exposure_stats_Table",topLeftCellText="Payment dates")
 ExposurePercentileTable = convertToLaTeX(pd.DataFrame(data=Ex_percentiles, columns=PaymentDates, index=["{0}".format(p) for p in exposureOutPercentiles], dtype=np.float),"Exposure_Percentiles_Table",topLeftCellText="Payment dates")
-
-
+return_lineChart(PaymentDates,[Ex_means,Ex_Sds],"Exposure distribution moments at each payment date",xlabel="Payment date", ylabel="Statistic",xticks=PaymentDates,legend=["Mean", "S.D."])
+return_lineChart(PaymentDates,Ex_percentiles,"Exposure distribution percentiles",xlabel="Payment date", ylabel="Statistic", xticks=PaymentDates, legend=["{0}".format(ep) for ep in exposureOutPercentiles],rotateXLabels=45)
 print("Enter any key to finish.")
 
 save_all_figs()

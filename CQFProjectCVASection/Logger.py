@@ -10,6 +10,8 @@ def printf(str):
     logfile.write('\n-------------------------------\n')
     logfile.close()
 
+Extension = ".tex"
+
 def convertToLaTeX(df,name="", alignment="c", horAlignment="l", topLeftCellText=""):
     """
     Convert a pandas dataframe to a LaTeX tabular.
@@ -23,7 +25,7 @@ def convertToLaTeX(df,name="", alignment="c", horAlignment="l", topLeftCellText=
     #Write header
     output.write("\\begin{center}\n \\begin{tabular}{%s}\n\hline\n" % newColFormat)
     columnLabels = ["\\textbf{%s}" % label for label in df.columns]
-    output.write("\textbf{{0}} ".format(topLeftCellText)+"& %s\\\\\\hhline{|%s}\n" % (" & ".join(columnLabels),"=|"*(numColumns + 1)))
+    output.write("\\textbf{{0}} ".format(topLeftCellText)+"& %s\\\\\\hhline{|%s}\n" % (" & ".join(columnLabels),"=|"*(numColumns + 1)))
     #Write data lines
     for i in range(numRows):
         ind = df.index[i]
@@ -37,18 +39,18 @@ def convertToLaTeX(df,name="", alignment="c", horAlignment="l", topLeftCellText=
         os.makedirs(SubmissionFilePath)
     
     SubmissionFilePath += (name.replace(" ","_").replace(".",",") if not name == "" else "latextable")
-    if not os.path.exists(SubmissionFilePath+".txt"):
-        SubmissionFilePath += ".txt"
+    if not os.path.exists(SubmissionFilePath+Extension):
+        SubmissionFilePath += Extension
         file = open(SubmissionFilePath,"w")
         file.write(output.getvalue())
                 
     else:
         j = 1
         tname = SubmissionFilePath
-        while os.path.exists(tname+".txt"):
+        while os.path.exists(tname+Extension):
             tname = name + "_%d"%(j)
             j +=1
-        SubmissionFilePath = tname + ".txt"
+        SubmissionFilePath = tname + Extension
         file = open(SubmissionFilePath,"w")
         file.write(output.getvalue())
     file.close()

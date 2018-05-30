@@ -442,7 +442,7 @@ def FittedValuesLinear(x,y,IsInterpolationOrRegression="Interpolation",PowerOfRe
     else:
         return f_cust, xLin
 
-def return_lineChart(x,arrLines,name,numberPlot=1,noOfPlotsW=1, noOfPlotsH=1,xlabel = "",ylabel="",legend=[], xticks=[], yticks=[]):
+def return_lineChart(x,arrLines,name,numberPlot=1,noOfPlotsW=1, noOfPlotsH=1,xlabel = "",ylabel="",legend=[], xticks=[], yticks=[], rotateXLabels=0):
     ''' Plots all lines on the same chart against x.'''
     pyplot_memcheck()
     if numberPlot==1:
@@ -464,6 +464,9 @@ def return_lineChart(x,arrLines,name,numberPlot=1,noOfPlotsW=1, noOfPlotsH=1,xla
     if len(legend) > 0:
         plt.legend(legend,loc='best')
     plt.grid(True)
+    if rotateXLabels > 0:
+        ax = plt.gca()
+        plt.setp(ax.get_xticklabels(), rotation=rotateXLabels%360, horizontalalignment='right')
 
 
 def return_lineChart_dates(x,arrLines,name,numberPlot=1,noOfPlotsW=1, noOfPlotsH=1,xlabel = "",ylabel="",legend=[], yticks=[]):
